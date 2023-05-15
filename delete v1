@@ -1,0 +1,122 @@
+import pytest
+import requests
+import test_auth
+
+BASE_URL = 'https://api-md.mel-meccano.ru/v1/article'
+USER_TYPE = '48f8723c-a64f-4714-af09-da2f6e57235c'
+PROJECT_ID = '43f1db54-9139-422a-b7a1-65ce744ad011'
+
+def get_auth_header():
+    access_token = test_auth.test_authenticate_success()
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+    return headers
+
+def make_request(url, method="post", headers=None, json=None):
+    response = requests.request(method, url, headers=headers, json=json)
+    assert response.status_code in {200, 204}
+    return response.json() if method == "post" else None
+
+def get_article_ids(n=3):
+    url = f'{BASE_URL}/all?expand=title%2Csource.name%2Cdate%2Cannotation%2Ccity.name%2Ccountry.name%2Ccomplete_monitor%2Ccomplete_analytic%2Ccomplete_client%2Cuser%2CusersManagers.user%2CusersManagers.fromUser%2Cposition_import&user_type={USER_TYPE}'
+
+    json_data = {
+        "project": PROJECT_ID,
+        "page": 1,
+        "filter": {},
+        "query": {},
+        "per-page": 50,
+    }
+
+    response_data = make_request(url, headers=get_auth_header(), json=json_data)
+    ids = [item['id'] for item in response_data]
+    return ids[:n]
+
+@pytest.fixture()
+def json_data_ids():
+    ids = get_article_ids()
+    return {
+        "articleIds": ids,
+    }
+
+@pytest.fixture()
+def header():
+    return get_auth_header()
+
+@pytest.fixture()
+def json_data_one_id():
+    ids = get_article_ids(n=1)
+    return {
+        "articleIds": ids,
+    }
+
+@pytest.fixture()
+def json_data_two_ids():
+    ids = get_article_ids(n=2)
+    return {
+        "articleIds": ids,
+    }
+
+def test_delete_one_message_and_check(header, json_data_one_id):
+    url = f'{BASE_URL}?project={PROJECT_ID}&user_type={USER_TYPE}'
+
+    make_request(url, method="delete", headers=header, json=json_data_one_id)
+
+    url_check = f'{BASE_URL}/all?expand=title%2Csource.name%2Cdate%2Cannotation%2Ccomplete_monitor%2Ccomplete_analytic%2Ccomplete_client%2Cuser%2CusersManagers.user%2CusersManagers.fromUser%2Cposition_import&user_type={USER_TYPE}'
+
+    json_data_check = {
+        "project": PROJECT_ID,
+        "page": 1,
+        "filter": {},
+        "query": {},
+        "per-page": 50
+    }
+
+    response_data = make_request(url_check, headers=header, json=json_data_check)
+    ids_after_delete = [item['id'] for item in response_data]
+
+    for id_ in json_data_one_id["articleIds"]:
+        assert id_ not in ids_after_delete, f"ID {id_} was not deleted"
+
+def test_delete_two_messages_and_check(header, json_data_two_ids):
+    url = f'{BASE_URL}?project={PROJECT_ID}&user_type={USER_TYPE}'
+
+    make_request(url, method="delete", headers=header, json=json_data_two_ids)
+
+    url_check = f'{BASE_URL}/all?expand=title%2Csource.name%2Cdate%2Cannotation%2Ccomplete_monitor%2Ccomplete_analytic%2Ccomplete_client%2Cuser%2CusersManagers.user%2CusersManagers.fromUser%2Cposition_import&user_type={USER_TYPE}'
+
+    json_data_check = {
+        "project": PROJECT_ID,
+        "page": 1,
+        "filter": {},
+        "query": {},
+        "per-page": 50
+    }
+
+    response_data = make_request(url_check, headers=header, json=json_data_check)
+    ids_after_delete = [item['id'] for item in response_data]
+
+    for id_ in json_data_two_ids["articleIds"]:
+        assert id_ not in ids_after_delete, f"ID {id_} was not deleted"
+
+def test_delete_messages_and_check(header, json_data_ids):
+    url = f'{BASE_URL}?project={PROJECT_ID}&user_type={USER_TYPE}'
+
+    make_request(url, method="delete", headers=header, json=json_data_ids)
+
+    url_check = f'{BASE_URL}/all?expand=title%2Csource.name%2Cdate%2Cannotation%2Ccomplete_monitor%2Ccomplete_analytic%2Ccomplete_client%2Cuser%2CusersManagers.user%2CusersManagers.fromUser%2Cposition_import&user_type={USER_TYPE}'
+
+    json_data_check = {
+        "project": PROJECT_ID,
+        "page": 1,
+        "filter": {},
+        "query": {},
+        "per-page": 50
+    }
+
+    response_data = make_request(url_check, headers=header, json=json_data_check)
+    ids_after_delete = [item['id'] for item in response_data]
+
+    for id_ in json_data_ids["articleIds"]:
+        assert id_ not in ids_after_delete, f"ID {id_} was not deleted"
